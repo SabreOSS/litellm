@@ -13892,7 +13892,11 @@ def _enrich_model_info_with_litellm_data(
         **{
             k: None if unpriced and k in ("input_cost_per_token", "output_cost_per_token") else v
             for k, v in MappingProxyType({**litellm_model_info, **discovered_model_info}).items()
-            if k not in stamped_model_info or (stamped_model_info[k] is None and k in discovered_model_info)
+            if k not in stamped_model_info
+            or (
+                stamped_model_info[k] is None
+                and (k in discovered_model_info or k in ("input_cost_per_token", "output_cost_per_token"))
+            )
         },
     }
     # don't return the api key / vertex credentials
