@@ -2603,7 +2603,11 @@ async def _run_centralized_common_checks(
             user_id=user_api_key_auth_obj.user_id or litellm_proxy_admin_name,
             user_role=LitellmUserRoles.PROXY_ADMIN,
             spend=user_object.spend if user_object is not None else 0.0,
+            metadata=user_object.metadata if user_object is not None else None,
         )
+
+    if user_object is not None:
+        user_api_key_auth_obj.user_metadata = user_object.metadata
 
     if project_object is not None:
         user_api_key_auth_obj.project_metadata = project_object.metadata
@@ -2967,6 +2971,7 @@ async def _return_user_api_key_auth_obj(
             user_spend=getattr(user_obj, "spend", None),
             user_max_budget=getattr(user_obj, "max_budget", None),
             user_model_max_budget=getattr(user_obj, "model_max_budget", None),
+            user_metadata=user_obj.metadata,
         )
     if user_obj is not None and _is_user_proxy_admin(user_obj=user_obj):
         user_api_key_kwargs.update(
