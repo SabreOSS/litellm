@@ -7708,7 +7708,7 @@ class TestPromotedTraceControlFields:
 
 @pytest.mark.asyncio
 async def test_add_litellm_data_to_request_inherited_tags_excludes_caller_tags():
-    """inherited_tags must carry only what key/team/project policy contributed,
+    """inherited_tags must carry only what key/user/team/project policy contributed,
     never anything the caller's own request (header/body) supplied, even when the
     caller resubmits the identical value -- it's a snapshot taken before the
     caller's own tags are merged in, not a set difference against caller_tags.
@@ -7734,7 +7734,9 @@ async def test_add_litellm_data_to_request_inherited_tags_excludes_caller_tags()
         api_key="hashed-key",
         user_id="real-user",
         metadata={"tags": ["key-supplied"]},
+        user_metadata={"tags": ["user-supplied", "key-supplied"]},
         team_metadata={"tags": ["team-supplied"]},
+        project_metadata={"tags": ["project-supplied", "user-supplied"]},
         spend=0.0,
         max_budget=100.0,
         model_max_budget={},
@@ -7751,8 +7753,13 @@ async def test_add_litellm_data_to_request_inherited_tags_excludes_caller_tags()
         version="test-version",
     )
 
-    assert set(updated["metadata"]["tags"]) == {"key-supplied", "team-supplied"}
-    assert set(updated["metadata"]["inherited_tags"]) == {"key-supplied", "team-supplied"}
+    assert updated["metadata"]["tags"] == ["key-supplied", "user-supplied", "team-supplied", "project-supplied"]
+    assert updated["metadata"]["inherited_tags"] == (
+        "key-supplied",
+        "user-supplied",
+        "team-supplied",
+        "project-supplied",
+    )
     assert tuple(updated["metadata"]["caller_tags"]) == ("key-supplied",)
 
 

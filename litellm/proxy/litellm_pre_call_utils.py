@@ -1905,11 +1905,12 @@ class LiteLLMProxyRequestSetup:
 
     @staticmethod
     def get_inherited_tags(user_api_key_dict: UserAPIKeyAuth) -> tuple[str, ...]:
-        """Every tag key, team and project policy contributes, in that order, without repeats"""
+        """Every tag key, user, team and project policy contributes, in that order, without repeats"""
         key_tags: Final = (user_api_key_dict.metadata or MappingProxyType({})).get("tags") or ()  # pyright: ignore[reportUnknownMemberType]  # key metadata is an untyped dict
+        user_tags: Final = _metadata_string_tags((user_api_key_dict.user_metadata or {},))
         team_tags: Final = (user_api_key_dict.team_metadata or {}).get("tags") or ()
         project_tags: Final = (user_api_key_dict.project_metadata or {}).get("tags") or ()
-        return tuple(dict.fromkeys((*key_tags, *team_tags, *project_tags)))
+        return tuple(dict.fromkeys((*key_tags, *user_tags, *team_tags, *project_tags)))
 
     @staticmethod
     def add_user_api_key_auth_to_request_metadata(
@@ -2723,14 +2724,22 @@ async def add_litellm_data_to_request(
         data=data,
         _metadata_variable_name=_metadata_variable_name,
     )
+    user_metadata: Final = user_api_key_dict.user_metadata or {}
+    user_tags: Final = user_metadata.get("tags")
+    if isinstance(user_tags, list):
+        data[_metadata_variable_name]["tags"] = LiteLLMProxyRequestSetup.merge_tags(
+            request_tags=data[_metadata_variable_name].get("tags"),
+            tags_to_add=user_tags,
+        )
     data[_metadata_variable_name] = LiteLLMProxyRequestSetup.add_team_and_project_level_controls(
         user_api_key_dict=user_api_key_dict,
         metadata=data[_metadata_variable_name],
     )
+
     team_metadata: Final = user_api_key_dict.team_metadata or {}
 
-    # inherited_tags: every tag key/team/project policy contributed, read
-    # directly from those three sources rather than snapshotted off the shared
+    # inherited_tags: every tag key/user/team/project policy contributed, read
+    # directly from those four sources rather than snapshotted off the shared
     # "tags" list. A pre-auth pass (apply_client_tag_policy_pre_auth, run from
     # user_api_key_auth for _tag_max_budget_check) may already have merged the
     # caller's own header tags into that same list before this function ever

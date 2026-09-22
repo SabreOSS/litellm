@@ -3737,7 +3737,11 @@ async def run_centralized_common_checks(
             object_permission_id=(
                 user_object.object_permission_id if isinstance(user_object, LiteLLM_UserTable) else None
             ),
+            metadata=user_object.metadata if user_object is not None else None,
         )
+
+    if user_object is not None:
+        user_api_key_auth_obj.user_metadata = user_object.metadata
 
     if project_object is not None:
         user_api_key_auth_obj.project_metadata = project_object.metadata
@@ -4356,6 +4360,7 @@ async def _return_user_api_key_auth_obj(
             user_spend=getattr(user_obj, "spend", None),
             user_max_budget=getattr(user_obj, "max_budget", None),
             user_model_max_budget=getattr(user_obj, "model_max_budget", None),
+            user_metadata=user_obj.metadata,
         )
     if user_obj is not None and is_user_proxy_admin(user_obj=user_obj):
         user_api_key_kwargs.update(
