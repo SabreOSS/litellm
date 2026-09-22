@@ -3208,6 +3208,7 @@ class UserAPIKeyAuth(LiteLLM_VerificationTokenView):  # the expected response ob
     user_email: str | None = None
     user_spend: float | None = None
     user_max_budget: float | None = None
+    user_metadata: dict | None = None
     # Values stay `object` rather than BudgetConfig: this is the raw JSON column,
     # and validating it here would make one malformed row fail auth outright.
     # resolve_model_budget validates the single entry a request actually needs.

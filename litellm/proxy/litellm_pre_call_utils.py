@@ -2260,6 +2260,14 @@ async def add_litellm_data_to_request(
         data=data,
         _metadata_variable_name=_metadata_variable_name,
     )
+    ### USER-LEVEL TAGS AND METADATA
+    user_metadata: Final = user_api_key_dict.user_metadata or {}
+    if "tags" in user_metadata and user_metadata["tags"] is not None:
+        data[_metadata_variable_name]["tags"] = LiteLLMProxyRequestSetup._merge_tags(
+            request_tags=data[_metadata_variable_name].get("tags"),
+            tags_to_add=user_metadata["tags"],
+        )
+
     ## TEAM-LEVEL SPEND LOGS/TAGS
     team_metadata: Final = user_api_key_dict.team_metadata or {}
     if "tags" in team_metadata and team_metadata["tags"] is not None:
@@ -2293,8 +2301,8 @@ async def add_litellm_data_to_request(
             tags_to_add=project_metadata["tags"],
         )
 
-    # inherited_tags: every tag key/team/project policy contributed, read
-    # directly from those three sources rather than snapshotted off the shared
+    # inherited_tags: every tag key/user/team/project policy contributed, read
+    # directly from those four sources rather than snapshotted off the shared
     # "tags" list. A pre-auth pass (apply_client_tag_policy_pre_auth, run from
     # user_api_key_auth for _tag_max_budget_check) may already have merged the
     # caller's own header tags into that same list before this function ever
@@ -2305,10 +2313,11 @@ async def add_litellm_data_to_request(
     # constraint's protection just by resubmitting its exact value alongside a
     # conflicting one.
     _key_tags: Final = (key_metadata or MappingProxyType({})).get("tags") or ()
+    _user_tags: Final = user_metadata.get("tags") or ()
     _team_tags: Final = team_metadata.get("tags") or ()
     _project_tags: Final = project_metadata.get("tags") or ()
     data[_metadata_variable_name]["inherited_tags"] = tuple(  # rebind-ok: matches this file's data[...] mutation idiom
-        dict.fromkeys((*_key_tags, *_team_tags, *_project_tags))
+        dict.fromkeys((*_key_tags, *_user_tags, *_team_tags, *_project_tags))
     )
 
     ## TEAM-LEVEL METADATA
