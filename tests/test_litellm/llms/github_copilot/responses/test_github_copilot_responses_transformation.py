@@ -7,18 +7,20 @@ transformations for the Responses API.
 Source: litellm/llms/github_copilot/responses/transformation.py
 """
 
-from unittest.mock import patch, MagicMock
-
+from typing import Final
+from unittest.mock import MagicMock, patch
 
 import pytest
+from openai.types.responses import ResponseReasoningItem
+
 import litellm
 from litellm.litellm_core_utils.get_model_cost_map import get_model_cost_map
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
 from litellm.llms.github_copilot.responses.transformation import (
     GithubCopilotResponsesAPIConfig,
 )
-from litellm.types.llms.openai import ResponsesAPIOptionalRequestParams
+from litellm.types.llms.openai import ResponseInputParam, ResponsesAPIOptionalRequestParams
+from litellm.types.utils import LlmProviders
+from litellm.utils import ProviderConfigManager
 
 
 @pytest.fixture(autouse=True)
@@ -355,6 +357,54 @@ class TestGithubCopilotResponsesAPITransformation:
 
         for param in expected_params:
             assert param in supported, f"{param} should be in supported params"
+
+    @pytest.mark.parametrize("as_model", [False, True])
+    @pytest.mark.parametrize("encrypted_content", [None, "opaque-signature"])
+    def test_validate_input_drops_connector_reasoning_items(
+        self, as_model: bool, encrypted_content: str | None
+    ) -> None:
+        config: Final = GithubCopilotResponsesAPIConfig()
+        synthetic_reasoning: Final = ResponseReasoningItem(
+            type="reasoning",
+            id="reasoning_18",
+            summary=[],
+            encrypted_content=encrypted_content,
+        )
+        preserved_input: Final[ResponseInputParam] = [
+            {"role": "user", "content": "Hello"},
+            {
+                "type": "reasoning",
+                "id": "rs_provider_item",
+                "summary": [],
+                "encrypted_content": "provider-encrypted-content",
+            },
+            {
+                "type": "reasoning",
+                "summary": [],
+                "encrypted_content": "idless-encrypted-content",
+            },
+            {"role": "assistant", "content": "Checking"},
+            {
+                "type": "function_call",
+                "id": "reasoning_call",
+                "call_id": "call_1",
+                "name": "lookup",
+                "arguments": "{}",
+            },
+            {"type": "function_call_output", "call_id": "call_1", "output": "result"},
+        ]
+        history: Final[ResponseInputParam] = [
+            preserved_input[0],
+            synthetic_reasoning if as_model else synthetic_reasoning.model_dump(exclude_none=True),
+            *preserved_input[1:],
+        ]
+
+        assert config._validate_input_param(history) == preserved_input
+        assert len(history) == len(preserved_input) + 1
+        assert history[1] == (
+            synthetic_reasoning if as_model else synthetic_reasoning.model_dump(exclude_none=True)
+        )
+        assert config._validate_input_param("Hello") == "Hello"
 
     def test_handle_reasoning_item_preserves_encrypted_content(self):
         """Test that _handle_reasoning_item preserves encrypted_content for GitHub Copilot.

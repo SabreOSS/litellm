@@ -11,6 +11,8 @@ https://github.com/caozhiyuan/copilot-api
 import os
 from typing import TYPE_CHECKING, Any, Final
 
+from typing_extensions import override
+
 import litellm
 from litellm._logging import verbose_logger
 from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH
@@ -261,6 +263,32 @@ class GithubCopilotResponsesAPIConfig(OpenAIResponsesAPIConfig):
 
         # Return the responses endpoint
         return f"{effective_api_base}/responses"
+
+    @override
+    def _validate_input_param(self, input: str | ResponseInputParam) -> str | ResponseInputParam:
+        """
+        Normalize input and omit connector-generated reasoning items from replay.
+
+        The connector invents reasoning_<index> IDs instead of preserving provider
+        IDs. Copilot requires an rs-prefixed ID paired with its original encrypted
+        content. Renaming cannot restore that pair, so these items are omitted
+        while other reasoning items and conversation history are preserved.
+
+        Related ID-validation error: https://github.com/BerriAI/litellm/issues/14991
+        """
+        validated_input: Final = super()._validate_input_param(input)
+        if isinstance(validated_input, str):
+            return validated_input
+        return [
+            item
+            for item in validated_input
+            if not (
+                isinstance(item, dict)
+                and item.get("type") == "reasoning"
+                and isinstance(item_id := item.get("id"), str)
+                and item_id.startswith("reasoning_")
+            )
+        ]
 
     def _handle_reasoning_item(self, item: dict[str, Any]) -> dict[str, Any]:
         """
