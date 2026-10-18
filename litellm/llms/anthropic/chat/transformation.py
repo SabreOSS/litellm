@@ -2388,9 +2388,9 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
 
         data: Final = {
             "model": model,
-            "messages": anthropic_messages,
             **optional_params,
             **({} if marked_tools is None else {"tools": list(marked_tools)}),
+            "messages": anthropic_messages,
         }
 
         self._apply_output_config(data=data, model=model, optional_params=optional_params)
